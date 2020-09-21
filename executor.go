@@ -11,17 +11,17 @@ import (
 type Dependencies map[string][]string
 
 type Report struct {
-	ContainerName	string
-	Log				string
-	Error			error
-	Success			bool
+	ContainerName string
+	Log           string
+	Error         error
+	Success       bool
 }
 
 type ExecutableMap map[int][]Image
 
 /*
 	This function scans Dockerfile, given as string with commands, and extracts image names it depends
- */
+*/
 func findDockerDependencies(dockerfile string) (deps []string, err error) {
 	re := regexp.MustCompile(`(?m)FROM (.*?[|$| |\n])`)
 	substrings := re.FindAllStringSubmatch(dockerfile, -1)
@@ -102,7 +102,7 @@ func scanDependencies(config BuildConfiguration) (ext, int, bwd Dependencies, er
 
 /*
 	This function scans mapped map in search of highest integer value from deps
- */
+*/
 func findDeepestLayer(mapped map[string]int, deps []string) int {
 	max := 0
 	for _, v := range deps {
@@ -116,7 +116,7 @@ func findDeepestLayer(mapped map[string]int, deps []string) int {
 
 /*
 	This function builds topologically sorted graph of images, and returns it as map
- */
+*/
 func buildExecutableMap(config BuildConfiguration) (result ExecutableMap, err error) {
 	namesMap, _ := config.NamesMap()
 	names := config.Names()
@@ -137,13 +137,13 @@ func buildExecutableMap(config BuildConfiguration) (result ExecutableMap, err er
 	// roll through map, probably multiple times
 	// first time we add all images without deps to the root image
 	for _, k := range names {
-		 deps, _ := inDeps[k]
+		deps, _ := inDeps[k]
 
-		 if len(deps) == 0 {
-		 	v, _ := namesMap[k]
-		 	result[currentLayer] = append(result[currentLayer], v)
-		 	mapped[k] = currentLayer
-		 }
+		if len(deps) == 0 {
+			v, _ := namesMap[k]
+			result[currentLayer] = append(result[currentLayer], v)
+			mapped[k] = currentLayer
+		}
 	}
 
 	// shortcut: if all results were mapped to the first layer - just return then
@@ -154,7 +154,7 @@ func buildExecutableMap(config BuildConfiguration) (result ExecutableMap, err er
 	currentLayer++
 
 	// now roll n^2 times through remaining elements
-	for i := 0; i < config.NumJobs() - len(result[0]); i++ {
+	for i := 0; i < config.NumJobs()-len(result[0]); i++ {
 		for k, v := range namesMap {
 
 			// skip this layer if it was already mapped
@@ -192,7 +192,7 @@ func buildExecutableMap(config BuildConfiguration) (result ExecutableMap, err er
 
 /*
 	This function builds Docker images
- */
+*/
 func BuildImages(config BuildConfiguration) (err error) {
 	// make sure we use some threads
 	if config.Threads < 1 {
@@ -226,14 +226,14 @@ func BuildImages(config BuildConfiguration) (err error) {
 		// each layer is an array of images
 		layer, _ := executableMap[i]
 		for _, image := range layer {
-			workers[jobsCounter % config.Threads] <- image
+			workers[jobsCounter%config.Threads] <- image
 			jobsCounter += 1
 			dispatched++
 		}
 
 		// now, when all jobs on this layer were dispatched - wait for them to finish
 		for i := 0; i < dispatched; i++ {
-			report := <- requeue
+			report := <-requeue
 			if !report.Success {
 				failed = append(failed, report)
 			} else {
@@ -253,20 +253,27 @@ func BuildImages(config BuildConfiguration) (err error) {
 
 /*
 	This function runs in an endless loop, building all images that come from input channel
- */
+*/
 func worker(input chan Image, output chan<- Report) {
 	for true {
-		image := <- input
+		image := <-input
 		builder(image, output)
 	}
 }
 
 /*
 	This function executes docker build
- */
+*/
 func builder(image Image, reporting chan<- Report) {
-	fmt.Printf("docker build -t %v %v\n", image.ContainerName, image.Dockerpath)
-	cmd := exec.Command("docker", "build", "-t", image.ContainerName, image.Dockerpath)
+	var cmd *exec.Cmd
+	if image.ForbidCache {
+		fmt.Printf("docker build --no-cache -t %v %v\n", image.ContainerName, image.Dockerpath)
+		cmd = exec.Command("docker", "build", "--no-cache", "-t", image.ContainerName, image.Dockerpath)
+	} else {
+		fmt.Printf("docker build -t %v %v\n", image.ContainerName, image.Dockerpath)
+		cmd = exec.Command("docker", "build", "-t", image.ContainerName, image.Dockerpath)
+	}
+
 	output, err := cmd.Output()
 	if err != nil {
 		reporting <- Report{ContainerName: image.ContainerName, Log: string(output), Error: err, Success: false}
