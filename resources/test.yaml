@@ -1,0 +1,8 @@
+build:
+  - containerName: Alpha
+    dockerpath: /path/to/Folder
+    noCache: false
+  - containerName: Beta
+    dockerpath: /path/to/OtherFolder
+    noCache: false
+threads: 12
