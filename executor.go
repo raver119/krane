@@ -1,7 +1,7 @@
 package main
 
 import (
-	"golang.org/x/exp/errors/fmt"
+	"fmt"
 	"os/exec"
 	"regexp"
 	"runtime"
