@@ -23,7 +23,7 @@ type ExecutableMap map[int][]Image
 	This function scans Dockerfile, given as string with commands, and extracts image names it depends
 */
 func findDockerDependencies(dockerfile string) (deps []string, err error) {
-	re := regexp.MustCompile(`(?m)FROM (.*?[|$| |\n])`)
+	re := regexp.MustCompile(`(?im)FROM (.*?[|$| |\n])`)
 	substrings := re.FindAllStringSubmatch(dockerfile, -1)
 	for _, v := range substrings {
 		for i, dep := range v {
