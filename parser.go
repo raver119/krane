@@ -9,20 +9,20 @@ import (
 
 type NamesMap map[string]Image
 
-type Image	struct {
+type Image struct {
 	ContainerName string `yaml:"containerName"`
 	Dockerpath    string `yaml:"dockerpath"`
 	ForbidCache   bool   `yaml:"noCache"`
 }
 
 type BuildConfiguration struct {
-	Images		[]Image		`yaml:"build"`
-	Threads		int			`yaml:"threads"`
+	Images  []Image `yaml:"build"`
+	Threads int     `yaml:"threads"`
 }
 
 /*
 	This method returns specified Dockerfile as string
- */
+*/
 func (i Image) Dockerfile() (content string, err error) {
 	// FIXME: remove double // here
 	bytes, err := ioutil.ReadFile(i.Dockerpath + "/Dockerfile")
@@ -35,14 +35,14 @@ func (i Image) Dockerfile() (content string, err error) {
 
 /*
 	This method returns number of images to be built
- */
+*/
 func (bc BuildConfiguration) NumJobs() int {
 	return len(bc.Images)
 }
 
 /*
 	This method returns container names organized into map
- */
+*/
 func (bc BuildConfiguration) NamesMap() (NamesMap, error) {
 	result := make(NamesMap)
 
@@ -54,16 +54,16 @@ func (bc BuildConfiguration) NamesMap() (NamesMap, error) {
 		if strings.Contains(v.ContainerName, ":") {
 			result[v.ContainerName] = v
 		} else {
-			result[v.ContainerName + ":latest"] = v
+			result[v.ContainerName+":latest"] = v
 		}
 	}
 
 	return result, nil
 }
 
-/*
-	This method returns slice of image names
- */
+/*main
+This method returns slice of image names
+*/
 func (bc BuildConfiguration) Names() (result []string) {
 	SortImages(&bc)
 	for _, v := range bc.Images {
@@ -71,35 +71,34 @@ func (bc BuildConfiguration) Names() (result []string) {
 		if strings.Contains(v.ContainerName, ":") {
 			result = append(result, v.ContainerName)
 		} else {
-			result = append(result, v.ContainerName + ":latest")
+			result = append(result, v.ContainerName+":latest")
 		}
 	}
 
 	return
 }
 
-
-
 /*
-	This function provides deserialization of given byte slice
- */
-func ParseBytes(conf []byte) (bc BuildConfiguration, err error)  {
+	This function provides YAML deserialization of given byte slice
+*/
+func ParseBytes(conf []byte) (bc BuildConfiguration, err error) {
 	err = yaml.Unmarshal(conf, &bc)
-	SortImages(&bc)
-
+	if err == nil {
+		SortImages(&bc)
+	}
 	return
 }
 
 /*
 	This function provides deserialization of a given string
- */
+*/
 func ParseString(conf string) (BuildConfiguration, error) {
 	return ParseBytes([]byte(conf))
 }
 
 /*
 	This function provides deserialization of a given YAML file
- */
+*/
 func ParseFile(fileName string) (bc BuildConfiguration, err error) {
 	conf, err := ioutil.ReadFile(fileName)
 	if err != nil {
