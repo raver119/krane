@@ -74,6 +74,11 @@ func ParseBytes(conf []byte) (bc BuildConfiguration, err error) {
 	err = yaml.Unmarshal(conf, &bc)
 	if err == nil {
 		SortImages(&bc)
+		for i, _ := range bc.Images {
+			if len(bc.Images[i].Folders) == 0 {
+				bc.Images[i].Folders = []string{}
+			}
+		}
 	}
 	return
 }

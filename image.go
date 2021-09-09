@@ -1,7 +1,8 @@
 package main
 
 type Image struct {
-	ContainerName string `yaml:"containerName"`
-	Dockerpath    string `yaml:"dockerpath"`
-	ForbidCache   bool   `yaml:"noCache"`
+	Folders       []string `yaml:"folders"`
+	ContainerName string   `yaml:"containerName"`
+	Dockerpath    string   `yaml:"dockerpath"`
+	ForbidCache   bool     `yaml:"noCache"`
 }
