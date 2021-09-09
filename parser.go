@@ -9,17 +9,6 @@ import (
 
 type NamesMap map[string]Image
 
-type Image struct {
-	ContainerName string `yaml:"containerName"`
-	Dockerpath    string `yaml:"dockerpath"`
-	ForbidCache   bool   `yaml:"noCache"`
-}
-
-type BuildConfiguration struct {
-	Images  []Image `yaml:"build"`
-	Threads int     `yaml:"threads"`
-}
-
 /*
 	This method returns specified Dockerfile as string
 */
