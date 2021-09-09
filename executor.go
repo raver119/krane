@@ -1,12 +1,22 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"log"
+	"os"
 	"os/exec"
+	"path"
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/otiai10/copy"
 )
+
+var stdout = NewLogger(os.Stdout)
+var stderr = NewLogger(os.Stderr)
 
 type Dependencies map[string][]string
 
@@ -261,21 +271,99 @@ func worker(input chan Image, output chan<- Report) {
 	}
 }
 
-/*
-	This function executes docker build
-*/
-func builder(image Image, reporting chan<- Report) {
-	var cmd *exec.Cmd
-	if image.ForbidCache {
-		fmt.Printf("docker build --no-cache -t %v %v\n", image.ContainerName, image.Dockerpath)
-		cmd = exec.Command("docker", "build", "--no-cache", "-t", image.ContainerName, image.Dockerpath)
-	} else {
-		fmt.Printf("docker build -t %v %v\n", image.ContainerName, image.Dockerpath)
-		cmd = exec.Command("docker", "build", "-t", image.ContainerName, image.Dockerpath)
+// checkFoldersExistence does what it says: it checks if source folders exist
+func checkFoldersExistence(folders ...string) (err error) {
+	for _, v := range folders {
+		f, err := os.Stat(v)
+		if err != nil {
+			return err
+		}
+
+		if !f.IsDir() {
+			return fmt.Errorf("[%v] is not a directory", f.Name())
+		}
 	}
 
-	output, err := cmd.Output()
+	return
+}
+
+// prepareFolders function copies folders
+func prepareFolders(root string, folders ...string) (err error) {
+	var folder Folder
+	for _, v := range folders {
+		folder, err = NewFolder(v)
+		if err != nil {
+			break
+		}
+
+		current := path.Join(root, folder.Target)
+		err = copy.Copy(folder.Source, current)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func scanAndLog(p io.ReadCloser) {
+	scanner := bufio.NewScanner(p)
+	for scanner.Scan() {
+		text := scanner.Text()
+		err := stdout.Println(text)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+// builder function executes docker build
+func builder(image Image, reporting chan<- Report) {
+	var cmd *exec.Cmd
+	var err error
+	var output []byte
+	var pipeOut, pipeErr io.ReadCloser
+
+	buildPath := image.Dockerpath
+	if len(image.Folders) > 0 {
+		// if image requires certain folders - things will happen in temporary folder
+		buildPath, err = os.MkdirTemp(os.TempDir(), fmt.Sprintf("*-%v-build", image.ContainerName))
+		if err != nil {
+			panic(err)
+		}
+
+		// copy folders
+		err = prepareFolders(buildPath, image.Folders...)
+		if err == nil {
+			// actual folder with dokerfile must be copied as well
+			err = prepareFolders(buildPath, image.Dockerpath)
+		}
+	}
+
+	// proceed only if folders were prepared without errors
+	if err == nil {
+		if image.ForbidCache {
+			fmt.Printf("Command: docker build --no-cache -t %v %v\n", image.ContainerName, buildPath)
+			cmd = exec.Command("docker", "build", "--no-cache", "-t", image.ContainerName, buildPath)
+		} else {
+			fmt.Printf("Command B: docker build -t %v %v\n", image.ContainerName, buildPath)
+			cmd = exec.Command("docker", "build", "--no-cache", "-t", image.ContainerName, buildPath)
+		}
+
+		// setup pipes
+		pipeOut, _ = cmd.StdoutPipe()
+		pipeErr, _ = cmd.StderrPipe()
+
+		// scan/retransmit stderr and stdout
+		go scanAndLog(pipeOut)
+		go scanAndLog(pipeErr)
+
+		// execute command
+		err = cmd.Run()
+	}
+
+	// report the outcome
 	if err != nil {
+		log.Printf("Err: %v", err.Error())
 		reporting <- Report{ContainerName: image.ContainerName, Log: string(output), Error: err, Success: false}
 	} else {
 		reporting <- Report{ContainerName: image.ContainerName, Log: string(output), Error: err, Success: true}

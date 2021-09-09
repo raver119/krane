@@ -41,8 +41,8 @@ func ValidatePath(path string, fatal bool) (err error) {
 type sortBy func(p1, p2 *Image) bool
 
 type imageSorter struct {
-	images		[]Image
-	sorter		func(p1, p2 *Image) bool
+	images []Image
+	sorter func(p1, p2 *Image) bool
 }
 
 func (s *imageSorter) Len() int {
