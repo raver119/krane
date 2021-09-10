@@ -326,7 +326,7 @@ func builder(image Image, reporting chan<- Report) {
 	buildPath := image.Dockerpath
 	if len(image.Folders) > 0 {
 		// if image requires certain folders - things will happen in temporary folder
-		buildPath, err = os.MkdirTemp(os.TempDir(), fmt.Sprintf("*-%v-build", image.ContainerName))
+		buildPath, err = os.MkdirTemp(os.TempDir(), fmt.Sprintf("*-build"))
 		if err != nil {
 			panic(err)
 		}
@@ -346,7 +346,7 @@ func builder(image Image, reporting chan<- Report) {
 			cmd = exec.Command("docker", "build", "--no-cache", "-t", image.ContainerName, buildPath)
 		} else {
 			fmt.Printf("Command B: docker build -t %v %v\n", image.ContainerName, buildPath)
-			cmd = exec.Command("docker", "build", "--no-cache", "-t", image.ContainerName, buildPath)
+			cmd = exec.Command("docker", "build", "-t", image.ContainerName, buildPath)
 		}
 
 		// setup pipes
